@@ -1,0 +1,33 @@
+name: signal
+on:
+  schedule:
+    - cron: "2,17,32,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test or compare"
+        default: "test"
+        type: choice
+        options:
+          - test
+          - compare
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAUUSD, BTCUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests pandas numpy
+      - run: python bot.py
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+          TD_KEY: ${{ secrets.TD_KEY }}
+          SYMBOL: ${{ matrix.symbol }}
+          MODE: ${{ github.event.inputs.mode || 'signal' }}
