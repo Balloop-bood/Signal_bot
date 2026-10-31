@@ -54,7 +54,7 @@ def from_twelve(key):
 
 
 def from_yahoo():
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X"
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/GC=F"
     r = requests.get(
         url,
         params={"interval": "15m", "range": "30d"},
