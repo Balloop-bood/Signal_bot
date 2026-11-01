@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        symbol: [XAUUSD, BTCUSDT]
+        symbol: [XAUUSD, XAGUSD, USOIL, US100, EURUSD, GBPUSD, USDJPY, BTCUSDT, ETHUSDT]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
