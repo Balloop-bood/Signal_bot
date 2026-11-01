@@ -5,23 +5,41 @@ import requests
 import numpy as np
 import pandas as pd
 
+ASSETS = {
+    "XAUUSD": {"src": "gold", "dec": 2},
+    "XAGUSD": {"src": "yahoo", "code": "SI=F", "dec": 3},
+    "USOIL": {"src": "yahoo", "code": "CL=F", "dec": 2},
+    "US100": {"src": "yahoo", "code": "NQ=F", "dec": 1},
+    "EURUSD": {"src": "yahoo", "code": "EURUSD=X", "dec": 5},
+    "GBPUSD": {"src": "yahoo", "code": "GBPUSD=X", "dec": 5},
+    "USDJPY": {"src": "yahoo", "code": "JPY=X", "dec": 3},
+    "BTCUSDT": {"src": "binance", "code": "BTCUSDT", "dec": 2, "crypto": True},
+    "ETHUSDT": {"src": "binance", "code": "ETHUSDT", "dec": 2, "crypto": True},
+}
+
 TOKEN = os.environ["TG_TOKEN"]
 CHAT = os.environ["TG_CHAT"]
 SYMBOL = os.environ.get("SYMBOL", "XAUUSD")
 MODE = os.environ.get("MODE", "signal")
 TD_KEY = os.environ.get("TD_KEY", "")
+CFG = ASSETS[SYMBOL]
+DEC = CFG["dec"]
 BAR_MS = 15 * 60 * 1000
-IS_BTC = "BTC" in SYMBOL
-ST_F = 3.5 if IS_BTC else 3.0
-SL_M = 2.0 if IS_BTC else 1.5
-RSI_OB = 75 if IS_BTC else 70
-RSI_OS = 25 if IS_BTC else 30
+CRYPTO = CFG.get("crypto", False)
+ST_F = 3.5 if CRYPTO else 3.0
+SL_M = 2.0 if CRYPTO else 1.5
+RSI_OB = 75 if CRYPTO else 70
+RSI_OS = 25 if CRYPTO else 30
 RR2 = 2.0
 WARMUP = 250
 SHOW = 15
 LOOKBACK = 8
 MAX_AGE_MIN = 150
 STATE_FILE = "state_" + SYMBOL + ".json"
+
+
+def fmt(x):
+    return format(x, "." + str(DEC) + "f")
 
 
 def send(text):
@@ -58,8 +76,8 @@ def from_twelve(key):
     return finish(df[["ot", "o", "h", "l", "c"]])
 
 
-def from_yahoo():
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/GC=F"
+def from_yahoo(code):
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/" + code
     r = requests.get(
         url,
         params={"interval": "15m", "range": "30d"},
@@ -89,14 +107,17 @@ def from_binance(symbol):
 
 
 def get_klines():
-    if "XAU" in SYMBOL:
+    src = CFG["src"]
+    if src == "binance":
+        return from_binance(CFG["code"]), "binance"
+    if src == "gold":
         if TD_KEY:
             try:
                 return from_twelve(TD_KEY), "twelvedata"
             except Exception as e:
                 print("twelvedata failed:", e)
-        return from_yahoo(), "yahoo"
-    return from_binance(SYMBOL), "binance"
+        return from_yahoo("GC=F"), "yahoo GC=F"
+    return from_yahoo(CFG["code"]), "yahoo " + CFG["code"]
 
 
 def rma(arr, n):
@@ -150,7 +171,7 @@ def main():
         last = times.iloc[-1].strftime("%d/%m %H:%M")
         send("ทดสอบบอท OK " + SYMBOL + "\nแหล่งข้อมูล " + src
              + "\nแท่งล่าสุด (เวลาไทย) " + last
-             + "\nราคาปิด " + format(c[-1], ".2f"))
+             + "\nราคาปิด " + fmt(c[-1]))
         return
 
     def check(i):
@@ -169,10 +190,10 @@ def main():
             s = check(i)
             if s:
                 rows.append(s[0] + " " + times.iloc[i].strftime("%d/%m %H:%M")
-                            + " E " + format(s[1], ".2f")
-                            + " SL " + format(s[2], ".2f")
-                            + " TP1 " + format(s[3], ".2f")
-                            + " TP2 " + format(s[4], ".2f"))
+                            + " E " + fmt(s[1])
+                            + " SL " + fmt(s[2])
+                            + " TP1 " + fmt(s[3])
+                            + " TP2 " + fmt(s[4]))
         head = "เทียบสัญญาณ " + SYMBOL + " M15 (เวลาไทย) แหล่งข้อมูล " + src + "\n"
         if rows:
             send(head + "\n".join(rows[-SHOW:]))
@@ -201,13 +222,13 @@ def main():
             continue
         late = ""
         if age > 16:
-            late = "\n(ล่าช้า " + str(int(age)) + " นาที ราคาล่าสุด " + format(c[-1], ".2f") + ")"
+            late = "\n(ล่าช้า " + str(int(age)) + " นาที ราคาล่าสุด " + fmt(c[-1]) + ")"
         send(s[0] + " " + SYMBOL + " M15\n"
              + "แท่ง " + times.iloc[i].strftime("%d/%m %H:%M") + "\n"
-             + "Entry " + format(s[1], ".2f") + "\n"
-             + "SL " + format(s[2], ".2f") + "\n"
-             + "TP1 " + format(s[3], ".2f") + "\n"
-             + "TP2 " + format(s[4], ".2f") + late)
+             + "Entry " + fmt(s[1]) + "\n"
+             + "SL " + fmt(s[2]) + "\n"
+             + "TP1 " + fmt(s[3]) + "\n"
+             + "TP2 " + fmt(s[4]) + late)
         last_sent = ot
         changed = True
 
