@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import requests
 import numpy as np
@@ -18,11 +19,15 @@ RSI_OS = 25 if IS_BTC else 30
 RR2 = 2.0
 WARMUP = 250
 SHOW = 15
+LOOKBACK = 8
+MAX_AGE_MIN = 150
+STATE_FILE = "state_" + SYMBOL + ".json"
 
 
 def send(text):
     url = "https://api.telegram.org/bot" + TOKEN + "/sendMessage"
-    requests.post(url, data={"chat_id": CHAT, "text": text}, timeout=20)
+    r = requests.post(url, data={"chat_id": CHAT, "text": text}, timeout=20)
+    r.raise_for_status()
 
 
 def finish(df):
@@ -175,16 +180,40 @@ def main():
             send(head + "ไม่มีสัญญาณในช่วงข้อมูลนี้")
         return
 
-    age_min = (time.time() * 1000 - df["ct"].iloc[-1]) / 60000.0
-    if age_min > 16:
-        return
-    s = check(len(c) - 1)
-    if s:
+    last_sent = 0
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE) as f:
+                last_sent = int(json.load(f)["last"])
+        except Exception:
+            last_sent = 0
+
+    now_ms = time.time() * 1000
+    changed = False
+    start = max(WARMUP, len(c) - LOOKBACK)
+    for i in range(start, len(c)):
+        ot = int(df["ot"].iloc[i])
+        age = (now_ms - int(df["ct"].iloc[i])) / 60000.0
+        if ot <= last_sent or age > MAX_AGE_MIN:
+            continue
+        s = check(i)
+        if not s:
+            continue
+        late = ""
+        if age > 16:
+            late = "\n(ล่าช้า " + str(int(age)) + " นาที ราคาล่าสุด " + format(c[-1], ".2f") + ")"
         send(s[0] + " " + SYMBOL + " M15\n"
+             + "แท่ง " + times.iloc[i].strftime("%d/%m %H:%M") + "\n"
              + "Entry " + format(s[1], ".2f") + "\n"
              + "SL " + format(s[2], ".2f") + "\n"
              + "TP1 " + format(s[3], ".2f") + "\n"
-             + "TP2 " + format(s[4], ".2f"))
+             + "TP2 " + format(s[4], ".2f") + late)
+        last_sent = ot
+        changed = True
+
+    if changed:
+        with open(STATE_FILE, "w") as f:
+            json.dump({"last": last_sent}, f)
 
 
 main()
