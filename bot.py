@@ -15,6 +15,7 @@ ASSETS = {
     "USDJPY": {"src": "yahoo", "code": "JPY=X", "dec": 3},
     "BTCUSDT": {"src": "binance", "code": "BTCUSDT", "dec": 2, "crypto": True},
     "ETHUSDT": {"src": "binance", "code": "ETHUSDT", "dec": 2, "crypto": True},
+    "GBPJPY": {"src": "yahoo", "code": "GBPJPY=X", "dec": 3},
 }
 
 TOKEN = os.environ["TG_TOKEN"]
